@@ -906,7 +906,6 @@ pre {
 
 <header>
   <div class="logo">
-    <!-- A split in half: left = text color, right = accent -->
     <svg width="28" height="28" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
       <clipPath id="lhalf"><rect x="0" y="0" width="11" height="22"/></clipPath>
       <clipPath id="rhalf"><rect x="11" y="0" width="11" height="22"/></clipPath>
@@ -1213,13 +1212,11 @@ function resetWeight() {
   if (built) buildAndRender();
 }
 
-// ── custom dropdown logic ──
 function toggleDropdown(wrapId) {
   const wrap = document.getElementById(wrapId);
   const btn = wrap.querySelector('.custom-select-btn');
   const dd = wrap.querySelector('.custom-select-dropdown');
   const isOpen = dd.classList.contains('open');
-  // close all
   document.querySelectorAll('.custom-select-dropdown').forEach(d => d.classList.remove('open'));
   document.querySelectorAll('.custom-select-btn').forEach(b => b.classList.remove('open'));
   if (!isOpen) { dd.classList.add('open'); btn.classList.add('open'); }
@@ -1238,7 +1235,6 @@ function selectOption(wrapId, type, el) {
   if (type === 'weight') { currentFontWeight = val; if (built) buildAndRender(); }
 }
 
-// close dropdowns on outside click
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.custom-select')) {
     document.querySelectorAll('.custom-select-dropdown').forEach(d => d.classList.remove('open'));
@@ -1246,7 +1242,6 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// ── color button sync ──
 ['color1','color2'].forEach(id => {
   const input = document.getElementById(id);
   const swatch = document.getElementById(id + 'Swatch');
@@ -1286,7 +1281,6 @@ function setSplitMode(mode, el) {
   btns.forEach(b => b.classList.remove('on'));
   el.classList.add('on');
   const pill = document.getElementById('segPill');
-  // 2x2 grid: vertical=top-left, horizontal=top-right, diag-down=bottom-left, diag-up=bottom-right
   const positions = {
     'vertical':   [0, 0],
     'horizontal': [1, 0],
@@ -1335,12 +1329,10 @@ document.getElementById('splitPos').addEventListener('input', function() {
   }
 });
 
-// Init track positions on load + auto-build
 window.addEventListener('DOMContentLoaded', () => {
   updateRangeTrack(document.getElementById('fontSize'), 'fontSizeFill', 'fontSizeThumb');
   updateRangeTrack(document.getElementById('splitPos'), 'splitPosFill', 'splitPosThumb');
   updateRangeTrack(document.getElementById('letterSpace'), 'letterSpaceFill', 'letterSpaceThumb');
-  // Auto-compile after fonts are ready
   buildAndRender();
 });
 
@@ -1348,14 +1340,12 @@ document.getElementById('userText').addEventListener('input', () => {
   if (built) renderOutput();
 });
 
-// ── rasterize char → single alpha mask (split happens at SVG time) ──
 
 function renderGlyph(char, size, weight, family, italic=false) {
   const SS = 4; // supersampling factor — render 4× then output at 1×
   const fontStr = `${italic ? 'italic ' : ''}${weight} ${size * SS}px ${family}`;
   ctx.font = fontStr;
   const metrics = ctx.measureText(char);
-  // Add extra right padding for italic slant overhang (≈30% of em)
   const italicPad = italic ? Math.ceil(size * SS * 0.35) : 0;
   const w = Math.ceil(metrics.width) + SS * 4 + italicPad;
   const h = size * SS + SS * 6;
@@ -1374,7 +1364,6 @@ function renderGlyph(char, size, weight, family, italic=false) {
   }
   if (x0 > x1) return null;
   const gw = x1-x0+1, gh = y1-y0+1;
-  // Store raw alpha mask at SS resolution — split computed in glyphToSVG
   const mask = new Uint8Array(gw*gh);
   for (let y=0;y<gh;y++) for (let x=0;x<gw;x++) {
     mask[y*gw+x] = d[((y0+y)*w+(x0+x))*4+3];
@@ -1382,7 +1371,6 @@ function renderGlyph(char, size, weight, family, italic=false) {
   return { mask, gw, gh, adv: Math.ceil(metrics.width), SS };
 }
 
-// ── masks → SVG tag — split applied dynamically ──
 
 function glyphToSVG(g, c1, c2, seam, underline=false) {
   const { mask, gw, gh, adv, SS } = g;
@@ -1396,13 +1384,10 @@ function glyphToSVG(g, c1, c2, seam, underline=false) {
 
   function isDiagHalf2(x, y) {
     if (splitMode === 'diag-down') {
-      // diagonal from top-left to bottom-right; half2 is bottom-left triangle
-      // line: y/gh = x/gw → y*gw > x*gh means below the line
+
       const lineY = y / gh * gw;
       return x < lineY;
     } else if (splitMode === 'diag-up') {
-      // diagonal from top-right to bottom-left
-      // line: y/gh + x/gw = 1 → y*gw + x*gh > gw*gh means below line
       return (y * gw + x * gh) > gw * gh;
     }
     return false;
@@ -1433,7 +1418,6 @@ function glyphToSVG(g, c1, c2, seam, underline=false) {
   const inner1 = buildRects(false);
   const inner2 = buildRects(true);
 
-  // seam lines go into an overlay SVG (positioned absolute over both halves)
   let seamLine = '';
   if (seam) {
     if (splitMode === 'vertical') {
@@ -1449,7 +1433,6 @@ function glyphToSVG(g, c1, c2, seam, underline=false) {
     }
   }
 
-  // Underline: a rect below the glyph baseline, 1/12th of glyph height thick
   let ulExtra = 0;
   let ulSVG = '';
   if (underline) {
@@ -1462,7 +1445,6 @@ function glyphToSVG(g, c1, c2, seam, underline=false) {
   const totalH = +(sh + ulExtra).toFixed(3);
   const svgAttrs = `xmlns="http://www.w3.org/2000/svg" width="${adv2}" height="${sh}" viewBox="0 0 ${sw} ${sh}"`;
 
-  // Two separate SVGs stacked via position:absolute within a relative wrapper
   const seamOverlay = seamLine
     ? `<svg xmlns="http://www.w3.org/2000/svg" width="${adv2}" height="${sh}" viewBox="0 0 ${sw} ${sh}" style="position:absolute;top:0;left:0;pointer-events:none;">${seamLine}</svg>`
     : '';
@@ -1479,8 +1461,6 @@ function glyphToSVG(g, c1, c2, seam, underline=false) {
     sw, sh: totalH, adv: adv2
   };
 }
-
-// ── build ──
 
 async function buildAndRender() {
   setStatus('rasterizing glyphs…', 'busy');
@@ -1515,8 +1495,6 @@ async function buildAndRender() {
   buildGlyphStrip();
 }
 
-// ── preview render ──
-
 function renderOutput() {
   if (!built) return;
   const text = getText();
@@ -1547,7 +1525,6 @@ function renderOutput() {
       domHTML += sp; svgParts.push(sp); continue;
     }
     const { tag } = glyphToSVG(g, c1, c2, showSeam, currentUnderline);
-    // letter-spacing as inline margin
     const lsTag = currentLetterSpacing !== 0
       ? tag.replace('style="display:inline-block;vertical-align:bottom;position:relative;',
           `style="display:inline-block;vertical-align:bottom;position:relative;margin-right:${currentLetterSpacing * 0.5}px;margin-left:${currentLetterSpacing * 0.5}px;`)
@@ -1567,14 +1544,12 @@ function renderOutput() {
   document.getElementById('codeOutput').textContent = lastSVGCode;
 }
 
-// ── glyph strip (preview tab header) ──
 
 function buildGlyphStrip() {
   const inner = document.getElementById('glyphStripInner');
   inner.innerHTML = '';
   const c1 = getColor1(), c2 = getColor2();
 
-  // Use 'H' as cap-height reference; scale so H = TARGET_H, smaller glyphs stay proportional
   const refG = rawLib['H'] || rawLib['A'] || rawLib['M'];
   const capH = refG ? glyphToSVG(refG, c1, c2, false).sh : 18;
   const TARGET_H = 20;
@@ -1582,7 +1557,6 @@ function buildGlyphStrip() {
   for (const [ch, g] of Object.entries(rawLib)) {
     if (g.isSpace) continue;
     const { tag, adv, sh } = glyphToSVG(g, c1, c2, showSeam);
-    // Scale relative to cap height, but clamp so nothing exceeds TARGET_H px
     const scale2 = Math.min(TARGET_H / capH, TARGET_H / sh);
     const sw2 = +(adv * scale2).toFixed(1);
     const sh2 = +(sh * scale2).toFixed(1);
@@ -1596,7 +1570,6 @@ function buildGlyphStrip() {
   }
 }
 
-// ── full glyph library tab ──
 
 function buildGlyphGrid() {
   const grid = document.getElementById('panelGlyphs');
@@ -1610,7 +1583,6 @@ function buildGlyphGrid() {
   for (const [ch, g] of Object.entries(rawLib)) {
     if (g.isSpace) continue;
     const { tag, adv, sh } = glyphToSVG(g, c1, c2, showSeam);
-    // Clamp: tall glyphs (|, [, @) shrink to fit box; short glyphs stay proportional to cap
     const scale2 = Math.min(TARGET_H / capH, TARGET_H / sh);
     const cell = document.createElement('div');
     cell.className = 'glyph-cell';
@@ -1622,7 +1594,6 @@ function buildGlyphGrid() {
   }
 }
 
-// ── export ──
 
 function buildHTML(parts) {
   return `<!DOCTYPE html>
@@ -1683,7 +1654,6 @@ function showToast(msg) {
   toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
 }
 
-// ── background toggle ──
 let currentBg = 'checker';
 function setBg(bg, btn) {
   currentBg = bg;
@@ -1693,17 +1663,14 @@ function setBg(bg, btn) {
   pi.className = 'preview-inner bg-' + bg;
 }
 
-// ── Google Fonts loader ──
 function loadGoogleFont() {
   const input = document.getElementById('gfontsInput');
   const raw = input.value.trim();
   if (!raw) return;
 
-  // Accept full <link> tag or bare URL
   const urlMatch = raw.match(/href="([^"]+)"/);
   const url = urlMatch ? urlMatch[1] : raw;
 
-  // Must look like a Google Fonts URL
   if (!url.includes('fonts.googleapis.com')) {
     input.classList.remove('ok');
     input.classList.add('err');
@@ -1712,8 +1679,6 @@ function loadGoogleFont() {
     return;
   }
 
-  // Extract family names from the URL
-  // e.g. ?family=Pacifico&family=Open+Sans or ?family=Open+Sans:wght@400;700
   const familyParams = [...new URL(url).searchParams.getAll('family')];
   if (!familyParams.length) {
     input.classList.add('err');
@@ -1722,7 +1687,6 @@ function loadGoogleFont() {
     return;
   }
 
-  // Inject the link tag if not already present
   const existingLinks = [...document.querySelectorAll('link[data-gfonts-custom]')];
   existingLinks.forEach(l => l.remove());
   const link = document.createElement('link');
@@ -1732,17 +1696,14 @@ function loadGoogleFont() {
   link.setAttribute('data-gfonts-custom', '1');
   document.head.appendChild(link);
 
-  // Add each family as an option in the dropdown (if not already there)
   const dropdown = document.getElementById('fontSelectDropdown');
   let firstNewFamily = null;
 
   familyParams.forEach(param => {
-    // "Open+Sans:ital,wght@0,400" → "Open Sans"
     const familyName = param.split(':')[0].replace(/\+/g, ' ');
     const cssValue = `'${familyName}', sans-serif`;
     if (firstNewFamily === null) firstNewFamily = { familyName, cssValue };
 
-    // Don't add duplicates
     const already = [...dropdown.querySelectorAll('.custom-select-option')]
       .some(o => o.dataset.value === cssValue);
     if (already) return;
@@ -1752,16 +1713,12 @@ function loadGoogleFont() {
     opt.dataset.value = cssValue;
     opt.textContent = familyName;
     opt.onclick = function() { selectOption('fontSelectWrap', 'font', this); };
-    // Insert at top (after any existing options)
     dropdown.insertBefore(opt, dropdown.firstChild);
   });
 
-  // Auto-select the first loaded family
   if (firstNewFamily) {
     const { familyName, cssValue } = firstNewFamily;
-    // Update button label
     document.querySelector('#fontSelectWrap .custom-select-btn span:first-child').textContent = familyName;
-    // Mark selected
     dropdown.querySelectorAll('.custom-select-option').forEach(o => {
       o.classList.toggle('selected', o.dataset.value === cssValue);
     });
@@ -1773,11 +1730,9 @@ function loadGoogleFont() {
   showToast(`loaded: ${familyParams.map(p => p.split(':')[0].replace(/\+/g,' ')).join(', ')}`);
   setTimeout(() => input.classList.remove('ok'), 2000);
 
-  // Rebuild after fonts load
   link.onload = () => { if (built) buildAndRender(); else buildAndRender(); };
 }
 
-// Allow pressing Enter in the gfonts input to trigger load
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('gfontsInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); loadGoogleFont(); }
@@ -1793,7 +1748,6 @@ document.getElementById('letterSpace').addEventListener('input', function() {
   if (built) renderOutput();
 });
 
-// ── keyboard shortcut: Ctrl/Cmd+Enter to rebuild ──
 document.getElementById('userText').addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     e.preventDefault();
@@ -1801,13 +1755,11 @@ document.getElementById('userText').addEventListener('keydown', (e) => {
   }
 });
 
-// ── download PNG ──
 function downloadPNG() {
   const inner = document.getElementById('previewInner');
   const output = document.getElementById('renderOutput');
   if (!output) { showToast('nothing to export'); return; }
 
-  // Serialize the rendered output to an SVG wrapper then canvas
   const rect = output.getBoundingClientRect();
   const w = Math.ceil(rect.width) || 800;
   const h = Math.ceil(rect.height) || 200;
